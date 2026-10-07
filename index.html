@@ -1041,11 +1041,26 @@ function drawGrid(w,h,hl,pps){
 // Altura escrita (sax alto: MIDI + 9), de Si♭3 a Fá♯6. T=polegar/oitava, p1-p3=chaves de palma, B A G / F E D = orifícios,
 // gs cs bl bb = dedo mínimo esq. (Sol♯, Dó♯, Si, Si♭), c eb = mínimo dir. (Dó, Mi♭), bis/sk/sq = chaves laterais
 const SAXF={58:'B A G s4 F E D h2',59:'B A G s3 F E D h2',60:'B A G F E D h2',61:'B A G s2 F E D h2',62:'B A G F E D',63:'B A G F E D h1',64:'B A G F E',65:'B A G F',66:'B A G E',67:'B A G',68:'B A G s1',69:'B A',70:'B A k3',71:'B',72:'A',73:'',74:'T B A G F E D',75:'T B A G F E D h1',76:'T B A G F E',77:'T B A G F',78:'T B A G E',79:'T B A G',80:'T B A G s1',81:'T B A',82:'T B A k3',83:'T B',84:'T A',85:'T',86:'T p2',87:'T p1 p2',88:'T p1 p2 k1',89:'T p1 p2 p3 k1'};
-// Chaves no layout da imagem de referência (549×953): [id, mão, x, y, rx, ry, rotação]. E=esquerda (vermelho), D=direita (verde); x1..x6 = só decoração
-const SAXK=[['T','E',95,295,15,34,.15],['x1','E',155,298,10,12,0],['B','E',155,335,26,22,0],['bis','E',155,370,10,8,0],['A','E',155,402,26,22,0],['G','E',155,452,26,22,0],
-['p1','E',423,318,10,26,-.35],['p2','E',452,345,10,26,-.35],['p3','E',432,368,10,26,-.35],['s1','E',435,428,19,7,-.1],['s2','E',467,445,19,7,0],['s3','E',420,451,19,7,0],['s4','E',435,468,19,7,0],
-['k1','D',100,525,13,22,.1],['k2','D',100,568,12,20,0],['k3','D',98,610,12,20,0],['k4','D',110,658,8,16,.1],['k5','D',104,704,8,14,.3],
-['F','D',155,615,25,21,0],['E','D',155,674,25,21,0],['D','D',155,735,25,21,0],['h1','D',115,772,25,10,0],['h2','D',115,793,25,10,0]];
+// Chaves em coordenadas RELATIVAS AO CORPO do sax (como no clarinete): [id, mão, dx, y, rx, ry, rotação]
+// dx = deslocamento horizontal a partir do eixo do tubo (0 = centro do corpo; negativo = esquerda, positivo = direita).
+// O eixo e a largura do corpo em cada altura vêm de saxBodyAt(y), então a digitação acompanha qualquer tipo de sax.
+// E=esquerda (vermelho), D=direita (verde); x1 = só decoração
+const SAXK=[['T','E',-52,295,15,34,.15],['x1','E',0,298,10,12,0],['B','E',0,335,26,22,0],['bis','E',0,370,10,8,0],['A','E',0,402,26,22,0],['G','E',0,452,26,22,0],
+['p1','E',44,318,10,26,-.35],['p2','E',58,345,10,26,-.35],['p3','E',48,368,10,26,-.35],['s1','E',40,428,19,7,-.1],['s2','E',62,445,19,7,0],['s3','E',32,451,19,7,0],['s4','E',40,468,19,7,0],
+['k1','D',-40,525,13,22,.1],['k2','D',-40,568,12,20,0],['k3','D',-41,610,12,20,0],['k4','D',-32,658,8,16,.1],['k5','D',-36,704,8,14,.3],
+['F','D',0,615,25,21,0],['E','D',0,674,25,21,0],['D','D',0,735,25,21,0],['h1','D',-18,772,25,10,0],['h2','D',-18,793,25,10,0]];
+// eixo (x central) e largura do corpo na altura y, conforme o tipo de sax escolhido
+function saxBodyAt(y){
+    const sh=SAXTYPES[saxType].shape;
+    if(sh==='reto'){
+        const E=[[138,264,292],[700,244,318],[860,236,326],[908,214,333]];
+        let i=0; while(i<E.length-2 && y>E[i+1][0]) i++;
+        const t=(y-E[i][0])/(E[i+1][0]-E[i][0]), L=E[i][1]+(E[i+1][1]-E[i][1])*t, R=E[i][2]+(E[i+1][2]-E[i][2])*t;
+        return [(L+R)/2,R-L];
+    }
+    const [d,wd]=SAXSHAPES[sh].paths[1], m=d.match(/M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)/), x0=+m[1], y0=+m[2], x1=+m[3], y1=+m[4];
+    return [x0+(x1-x0)*(y-y0)/(y1-y0), wd];
+}
 const SOL=['Dó','Dó♯','Ré','Mi♭','Mi','Fá','Fá♯','Sol','Sol♯','Lá','Si♭','Si'], LET=[0,0,1,2,2,3,3,4,4,5,6,6], ACC=['','♯','','♭','','','♯','','♯','','♭',''];
 function writtenOf(m){ let w=m+SAXTYPES[saxType].t; while(w>89) w-=12; while(w<58) w+=12; return w; }
 // Tipos de sax: t = semitons somados à nota real (MIDI) para obter a altura escrita (transposição)
@@ -1095,10 +1110,12 @@ function drawPiano(){
         c.font='26px sans-serif'; c.fillText(ACC[pc],nx-34,yy+9);
         c.font='700 56px Inter,sans-serif'; c.fillStyle='#fff'; c.fillText(SOL[pc],20,205);
     } else c.fillText('♪',20,205);
-    // digitação: esquerda = vermelho, direita = verde
-    SAXK.forEach(([id,hand,x,y,rx,ry,rot])=>{
+    // digitação por cima do corpo: esquerda = vermelho, direita = verde (pressionadas desenhadas por último)
+    const keys=SAXK.slice().sort((a,b)=>(down.has(a[0])?1:0)-(down.has(b[0])?1:0));
+    keys.forEach(([id,hand,dx,y,rx,ry,rot])=>{
+        const [bx,bw]=saxBodyAt(y), ks=Math.max(.62,Math.min(1.08,bw/58)), x=bx+dx*ks;
         const on=down.has(id), hc=hand==='E'?'#ef5350':'#66bb6a';
-        c.beginPath(); c.ellipse(x,y,rx,ry,rot,0,Math.PI*2);
+        c.beginPath(); c.ellipse(x,y,rx*ks,ry*ks,rot,0,Math.PI*2);
         if(on){ c.shadowColor=hc; c.shadowBlur=26; c.fillStyle=hc; pos.push([ox+x*s,oy+y*s,hc]); } else c.fillStyle=light?'#fff':'#f4f1ea';
         c.fill(); c.shadowBlur=0; c.lineWidth=3; c.strokeStyle=on?'#fff':(light?'#9a8a60':'#2a2a2a'); c.stroke();
     });
